@@ -424,6 +424,34 @@ impl RestClient {
         let signed_transaction = self.create_single_signer_bcs_transaction(account, payload);
         Ok(self.submit_bcs_transaction(signed_transaction)?)
     }
+
+    pub fn claim_token(
+        &self,
+        account: LocalAccount,
+        sender: AccountAddress,
+        creator: AccountAddress,
+        collection_name: &str,
+        token_name: &str,
+        property_version: u64,
+    ) -> Result<String, ureq::Error> {
+        let payload = TransactionPayload::EntryFunction(EntryFunction::new(
+            ModuleId::new(
+                AccountAddress::from_hex_literal("0x3").unwrap(),
+                Identifier::new("token_transfers").unwrap(),
+            ),
+            Identifier::new("claim_script").unwrap(),
+            vec![],
+            vec![
+                bcs::to_bytes(&sender.to_hex_literal()).unwrap(),
+                bcs::to_bytes(&creator.to_hex_literal()).unwrap(),
+                bcs::to_bytes(collection_name).unwrap(),
+                bcs::to_bytes(token_name).unwrap(),
+                bcs::to_bytes(&property_version).unwrap(),
+            ],
+        ));
+        let signed_transaction = self.create_single_signer_bcs_transaction(account, payload);
+        Ok(self.submit_bcs_transaction(signed_transaction)?)
+    }
 }
 
 #[cfg(test)]
