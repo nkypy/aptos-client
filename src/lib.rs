@@ -1,4 +1,5 @@
-mod models;
+pub mod client;
+pub mod move_types;
 
 use std::{
     thread,
@@ -8,8 +9,6 @@ use std::{
 use aptos_sdk::{
     bcs,
     move_types::{identifier::Identifier, language_storage::ModuleId},
-    rest_client::aptos::Balance,
-    rest_client::aptos_api_types::U64,
     types::{
         account_address::AccountAddress,
         chain_id::ChainId,
@@ -17,82 +16,8 @@ use aptos_sdk::{
         LocalAccount,
     },
 };
-use serde::{de::DeserializeOwned, Deserialize};
 
-#[derive(Deserialize)]
-pub struct Resource<T> {
-    pub data: T,
-}
-
-#[derive(Deserialize)]
-pub struct ChainInfo {
-    pub chain_id: ChainId,
-}
-
-#[derive(Deserialize)]
-pub struct AccountInfo {
-    pub sequence_number: String,
-}
-
-#[derive(Deserialize)]
-pub struct HashInfo {
-    pub hash: String,
-}
-
-#[derive(Deserialize)]
-pub struct TransactionInfo {
-    #[serde(rename = "type")]
-    pub hash_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Collection {
-    pub collection_data: Handle,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenStore {
-    pub tokens: Handle,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenAmount {
-    pub amount: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenData {
-    pub token_data: Handle,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Handle {
-    pub handle: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Event {
-    pub sequence_number: U64,
-    pub data: EventData,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventData {
-    pub amount: U64,
-    pub id: EventId,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventId {
-    pub token_data_id: TokenDataId,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenDataId {
-    pub creator: AccountAddress,
-    pub collection: String,
-    pub name: String,
-}
+use crate::client::{EventData, TokenData, Transaction};
 
 // 客户端
 
@@ -119,60 +44,6 @@ impl RestClient {
         client
     }
 
-    // ledger chain id
-    fn chain_id(&self) -> Result<ChainId, ureq::Error> {
-        Ok(self
-            .client
-            .get(&self.base_url)
-            .call()?
-            .into_json::<ChainInfo>()?
-            .chain_id)
-    }
-
-    fn account_sequence_number(&self, account_address: AccountAddress) -> Result<u64, ureq::Error> {
-        Ok(self
-            .client
-            .get(&format!("{}/accounts/{}", self.base_url, account_address))
-            .call()?
-            .into_json::<AccountInfo>()?
-            .sequence_number
-            .parse::<u64>()
-            .unwrap())
-    }
-
-    pub fn account_resource<T: DeserializeOwned>(
-        &self,
-        account_address: AccountAddress,
-        resource_type: &str,
-    ) -> Result<T, ureq::Error> {
-        Ok(self
-            .client
-            .get(&format!(
-                "{}/accounts/{}/resource/{}",
-                self.base_url, account_address, resource_type
-            ))
-            .call()?
-            .into_json::<T>()?)
-    }
-
-    pub fn table_item(
-        &self,
-        table_handle: &str,
-        key_type: &str,
-        value_type: &str,
-        key: serde_json::Value,
-    ) -> Result<String, ureq::Error> {
-        Ok(self
-            .client
-            .post(&format!("{}/tables/{}/item", self.base_url, table_handle))
-            .send_json(serde_json::json!({
-                "key_type": key_type,
-                "value_type": value_type,
-                "key": key,
-            }))?
-            .into_string()?)
-    }
-
     pub fn create_single_signer_bcs_transaction(
         &self,
         sender: LocalAccount,
@@ -180,7 +51,8 @@ impl RestClient {
     ) -> SignedTransaction {
         let txn = RawTransaction::new(
             sender.address(),
-            self.account_sequence_number(sender.address()).unwrap(),
+            self.account_sequence_number(sender.address(), None)
+                .unwrap(),
             payload,
             100_000,
             100,
@@ -192,21 +64,6 @@ impl RestClient {
             self.chain_id,
         );
         sender.sign_transaction(txn)
-    }
-
-    // 返回 hash
-    pub fn submit_bcs_transaction(
-        &self,
-        signed_transaction: SignedTransaction,
-    ) -> Result<String, ureq::Error> {
-        let data = bcs::to_bytes(&signed_transaction).unwrap();
-        Ok(self
-            .client
-            .post(&format!("{}/transactions", self.base_url))
-            .set("Content-Type", "application/x.aptos.signed_transaction+bcs")
-            .send_bytes(&data)?
-            .into_json::<HashInfo>()?
-            .hash)
     }
 
     fn transaction_pending(&self, txn_hash: &str) -> bool {
@@ -221,7 +78,7 @@ impl RestClient {
             if resp.status() == 404 {
                 return true;
             }
-            if resp.into_json::<TransactionInfo>().unwrap().hash_type
+            if resp.into_json::<Transaction>().unwrap().transaction_type
                 == "pending_transaction".to_string()
             {
                 return true;
@@ -252,38 +109,6 @@ impl RestClient {
     }
 
     // 完成，测试通过
-    pub fn account_balance(&self, account_address: AccountAddress) -> Result<u64, ureq::Error> {
-        Ok(self
-            .account_resource::<Resource<Balance>>(
-                account_address,
-                "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
-            )?
-            .data
-            .coin
-            .value
-            .0)
-    }
-
-    // token 相关
-    pub fn collection(
-        &self,
-        account_address: AccountAddress,
-        collection_name: &str,
-    ) -> Result<String, ureq::Error> {
-        let table_handle = self
-            .account_resource::<Resource<Collection>>(account_address, "0x3::token::Collections")?
-            .data
-            .collection_data
-            .handle;
-        Ok(self.table_item(
-            &table_handle,
-            "0x1::string::String",
-            "0x3::token::CollectionData",
-            serde_json::json!(collection_name),
-        )?)
-    }
-
-    // 完成，测试通过
     pub fn create_collection(
         &self,
         account: LocalAccount,
@@ -308,35 +133,6 @@ impl RestClient {
         ));
         let signed_transaction = self.create_single_signer_bcs_transaction(account, payload);
         Ok(self.submit_bcs_transaction(signed_transaction)?)
-    }
-
-    pub fn token(
-        &self,
-        owner: AccountAddress,
-        creater: AccountAddress,
-        collection_name: &str,
-        token_name: &str,
-        property_version: u64,
-    ) -> Result<String, ureq::Error> {
-        let table_handle = self
-            .account_resource::<Resource<TokenStore>>(owner, "0x3::token::TokenStore")?
-            .data
-            .tokens
-            .handle;
-        let token_id = serde_json::json!({
-            "token_data_id": {
-                "creator": creater.to_hex_literal(),
-                "collection": collection_name,
-                "name": token_name,
-            },
-            "property_version": format!("{}", property_version),
-        });
-        Ok(self.table_item(
-            &table_handle,
-            "0x3::token::TokenId",
-            "0x3::token::Token",
-            token_id,
-        )?)
     }
 
     pub fn create_token(
@@ -394,34 +190,7 @@ impl RestClient {
             token_name,
             property_version,
         )?;
-        let amount: TokenAmount = serde_json::from_str(&resp).unwrap();
-        Ok(amount.amount.parse::<u64>().unwrap())
-    }
-
-    pub fn token_data(
-        &self,
-        creator: AccountAddress,
-        collection_name: &str,
-        token_name: &str,
-        _property_version: u64,
-    ) -> Result<String, ureq::Error> {
-        let table_handle = self
-            .account_resource::<Resource<TokenData>>(creator, "0x3::token::Collections")?
-            .data
-            .token_data
-            .handle;
-
-        let token_data_id = serde_json::json!({
-            "creator": creator.to_hex_literal(),
-            "collection": collection_name,
-            "name": token_name,
-        });
-        Ok(self.table_item(
-            &table_handle,
-            "0x3::token::TokenDataId",
-            "0x3::token::TokenData",
-            token_data_id,
-        )?)
+        Ok(resp.amount.0)
     }
 
     pub fn offer_token(
@@ -482,39 +251,18 @@ impl RestClient {
         Ok(self.submit_bcs_transaction(signed_transaction)?)
     }
 
-    pub fn events_by_event_handle(
-        &self,
-        account_address: AccountAddress,
-        event_handle: &str,
-        field_name: &str,
-        _start: u64,
-        _limit: u64,
-    ) -> Result<Vec<Event>, ureq::Error> {
-        Ok(self
-            .client
-            .get(&format!(
-                "{}/accounts/{}/events/{}/{}",
-                self.base_url,
-                account_address.to_hex_literal(),
-                event_handle,
-                field_name
-            ))
-            .call()?
-            .into_json::<Vec<Event>>()?)
-    }
-
     pub fn list_account_token_data(
         &self,
         account_address: AccountAddress,
         _start: u64,
         _limit: u64,
-    ) -> Result<Vec<String>, ureq::Error> {
-        let events = self.events_by_event_handle(
+    ) -> Result<Vec<TokenData>, ureq::Error> {
+        let events = self.events_by_event_handle::<EventData>(
             account_address,
             "0x3::token::TokenStore",
             "deposit_events",
-            0,
-            100,
+            None,
+            None,
         )?;
         let mut tokens = vec![];
         for e in events {
