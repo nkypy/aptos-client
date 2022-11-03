@@ -1,3 +1,5 @@
+mod models;
+
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -7,6 +9,7 @@ use aptos_sdk::{
     bcs,
     move_types::{identifier::Identifier, language_storage::ModuleId},
     rest_client::aptos::Balance,
+    rest_client::aptos_api_types::U64,
     types::{
         account_address::AccountAddress,
         chain_id::ChainId,
@@ -67,11 +70,36 @@ pub struct Handle {
     pub handle: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Event {
+    pub sequence_number: U64,
+    pub data: EventData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EventData {
+    pub amount: U64,
+    pub id: EventId,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EventId {
+    pub token_data_id: TokenDataId,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenDataId {
+    pub creator: AccountAddress,
+    pub collection: String,
+    pub name: String,
+}
+
 // 客户端
 
 #[derive(Debug)]
 pub struct RestClient {
     pub base_url: String,
+    #[cfg(not(target_arch = "wasm32"))]
     pub client: ureq::Agent,
     pub chain_id: ChainId,
 }
@@ -80,6 +108,7 @@ impl RestClient {
     pub fn new(base_url: &str) -> Self {
         let mut client = Self {
             base_url: base_url.into(),
+            #[cfg(not(target_arch = "wasm32"))]
             client: ureq::AgentBuilder::new()
                 .timeout_read(Duration::from_secs(2))
                 .timeout_write(Duration::from_secs(2))
@@ -451,6 +480,55 @@ impl RestClient {
         ));
         let signed_transaction = self.create_single_signer_bcs_transaction(account, payload);
         Ok(self.submit_bcs_transaction(signed_transaction)?)
+    }
+
+    pub fn events_by_event_handle(
+        &self,
+        account_address: AccountAddress,
+        event_handle: &str,
+        field_name: &str,
+        _start: u64,
+        _limit: u64,
+    ) -> Result<Vec<Event>, ureq::Error> {
+        Ok(self
+            .client
+            .get(&format!(
+                "{}/accounts/{}/events/{}/{}",
+                self.base_url,
+                account_address.to_hex_literal(),
+                event_handle,
+                field_name
+            ))
+            .call()?
+            .into_json::<Vec<Event>>()?)
+    }
+
+    pub fn list_account_token_data(
+        &self,
+        account_address: AccountAddress,
+        _start: u64,
+        _limit: u64,
+    ) -> Result<Vec<String>, ureq::Error> {
+        let events = self.events_by_event_handle(
+            account_address,
+            "0x3::token::TokenStore",
+            "deposit_events",
+            0,
+            100,
+        )?;
+        let mut tokens = vec![];
+        for e in events {
+            let token_data_id = e.data.id.token_data_id;
+            let token = self.token_data(
+                // account_address,
+                token_data_id.creator,
+                &token_data_id.collection,
+                &token_data_id.name,
+                0,
+            )?;
+            tokens.push(token);
+        }
+        Ok(tokens)
     }
 }
 

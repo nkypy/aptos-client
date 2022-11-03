@@ -1,6 +1,13 @@
 # Aptos SDK
 
+![license](https://img.shields.io/github/license/nkypy/aptos-client?style=flat-square)
+
 working in progress
+
+|        | sync     | async |
+| ------ | -------- | ----- |
+| native | &#10004; |       |
+| wasm32 |          |       |
 
 ## Functions
 
@@ -18,3 +25,4 @@ working in progress
 - [x] token_data
 - [x] offer_token
 - [x] claim_token
+- [x] list_account_token_data
