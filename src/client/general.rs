@@ -1,9 +1,19 @@
 use aptos_sdk::types::chain_id::ChainId;
 use serde::Deserialize;
 
-use crate::{move_types::U64, RestClient};
+use crate::{types::U64};
 
-/// GET /
+impl super::Client {
+    /// GET /
+    pub fn ledger_info(&self) -> Result<LedgerInfo, ureq::Error> {
+        Ok(self
+            .inner
+            .get(&self.base_url)
+            .call()?
+            .into_json::<LedgerInfo>()?)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LedgerInfo {
     /// Chain ID of the current chain
@@ -14,20 +24,4 @@ pub struct LedgerInfo {
     // pub block_height: U64,
     // pub oldest_block_height: U64,
     // pub ledger_timestamp: U64,
-}
-
-impl RestClient {
-    // basic
-    fn ledger_info(&self) -> Result<LedgerInfo, ureq::Error> {
-        Ok(self
-            .client
-            .get(&self.base_url)
-            .call()?
-            .into_json::<LedgerInfo>()?)
-    }
-
-    // public
-    pub fn chain_id(&self) -> Result<ChainId, ureq::Error> {
-        Ok(self.ledger_info()?.chain_id)
-    }
 }
