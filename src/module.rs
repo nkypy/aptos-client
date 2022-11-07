@@ -14,14 +14,14 @@ use crate::client::Client;
 
 #[derive(Debug)]
 pub struct ModuleClient {
-    module: ModuleId,
+    address: AccountAddress,
     pub client: Client,
 }
 
 impl ModuleClient {
-    pub fn new(rest_url: &str, address: AccountAddress, name: &str) -> Self {
+    pub fn new(rest_url: &str, address: AccountAddress) -> Self {
         Self {
-            module: ModuleId::new(address, Identifier::new(name).unwrap()),
+            address,
             client: Client::new(rest_url),
         }
     }
@@ -29,12 +29,13 @@ impl ModuleClient {
     pub fn entry_function(
         &self,
         account: LocalAccount,
+        name: &str,
         function: &str,
         ty_args: Vec<TypeTag>,
         args: Vec<Vec<u8>>,
     ) -> Result<String, ureq::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
-            self.module.clone(),
+            ModuleId::new(self.address, Identifier::new(name).unwrap()),
             Identifier::new(function).unwrap(),
             ty_args,
             args,

@@ -1,6 +1,6 @@
-use serde::{de::DeserializeOwned};
+use serde::de::DeserializeOwned;
 
-use crate::{types::U64};
+use crate::types::U64;
 
 impl super::Client {
     /// POST /tables/{table_handle}/item

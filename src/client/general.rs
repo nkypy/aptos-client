@@ -1,7 +1,7 @@
 use aptos_sdk::types::chain_id::ChainId;
 use serde::Deserialize;
 
-use crate::{types::U64};
+use crate::types::U64;
 
 impl super::Client {
     /// GET /
