@@ -1,4 +1,4 @@
-use aptos_sdk::types::account_address::AccountAddress;
+use aptos_types::account_address::AccountAddress;
 use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::types::U64;
@@ -12,18 +12,35 @@ impl super::Client {
         field_name: &str,
         _limit: Option<u64>,
         _start: Option<U64>,
-    ) -> Result<Vec<Event<T>>, ureq::Error> {
-        Ok(self
-            .inner
-            .get(&format!(
-                "{}/accounts/{}/events/{}/{}",
-                self.base_url,
-                account_address.to_hex_literal(),
-                event_handle,
-                field_name
-            ))
-            .call()?
-            .into_json::<Vec<Event<T>>>()?)
+    ) -> Result<Vec<Event<T>>, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .get(&format!(
+                    "{}/accounts/{}/events/{}/{}",
+                    self.base_url,
+                    account_address.to_hex_literal(),
+                    event_handle,
+                    field_name
+                ))
+                .call()?
+                .into_json::<Vec<Event<T>>>()?)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<Vec<Event<T>>>(
+                &format!(
+                    "{}/accounts/{}/events/{}/{}",
+                    self.base_url,
+                    account_address.to_hex_literal(),
+                    event_handle,
+                    field_name
+                ),
+                "GET",
+                None,
+            )?)
+        }
     }
 }
 

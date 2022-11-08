@@ -4,10 +4,24 @@
 
 working in progress
 
-|        | sync     | async |
-| ------ | -------- | ----- |
-| native | &#10004; |       |
-| wasm32 |          |       |
+|        | sync | async |
+| ------ | ---- | ----- |
+| native | O    | X     |
+| wasm32 | O    | X     |
+
+## Usage
+
+```yaml
+# Cargo.toml
+
+aptos-client = { git = "https://github.com/nkypy/aptos-client" }
+```
+```bash
+# for wasm32
+brew install emscripten
+export CC=emcc
+export AR=emar
+```
 
 ## Functions
 

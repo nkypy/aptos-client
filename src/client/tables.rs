@@ -11,15 +11,33 @@ impl super::Client {
         value_type: &str,
         key: serde_json::Value,
         _ledger_version: Option<U64>,
-    ) -> Result<T, ureq::Error> {
-        Ok(self
-            .inner
-            .post(&format!("{}/tables/{}/item", self.base_url, table_handle))
-            .send_json(serde_json::json!({
-                "key_type": key_type,
-                "value_type": value_type,
-                "key": key,
-            }))?
-            .into_json::<T>()?)
+    ) -> Result<T, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .post(&format!("{}/tables/{}/item", self.base_url, table_handle))
+                .send_json(serde_json::json!({
+                    "key_type": key_type,
+                    "value_type": value_type,
+                    "key": key,
+                }))?
+                .into_json::<T>()?)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<T>(
+                &format!("{}/tables/{}/item", self.base_url, table_handle),
+                "POST",
+                Some(&serde_wasm_bindgen::to_value(
+                    serde_json::json!({
+                        "key_type": key_type,
+                        "value_type": value_type,
+                        "key": key,
+                    })
+                    .unwrap(),
+                )),
+            )?)
+        }
     }
 }

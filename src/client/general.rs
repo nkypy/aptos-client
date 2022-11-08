@@ -1,16 +1,24 @@
-use aptos_sdk::types::chain_id::ChainId;
+use aptos_types::chain_id::ChainId;
 use serde::Deserialize;
 
 use crate::types::U64;
 
 impl super::Client {
     /// GET /
-    pub fn ledger_info(&self) -> Result<LedgerInfo, ureq::Error> {
-        Ok(self
-            .inner
-            .get(&self.base_url)
-            .call()?
-            .into_json::<LedgerInfo>()?)
+    pub fn ledger_info(&self) -> Result<LedgerInfo, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .get(&self.base_url)
+                .call()?
+                .into_json::<LedgerInfo>()?)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<LedgerInfo>(&self.base_url, "GET", None)?)
+        }
     }
 }
 

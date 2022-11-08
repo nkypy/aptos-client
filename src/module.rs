@@ -1,16 +1,13 @@
-use aptos_sdk::{
-    move_types::{
-        identifier::Identifier,
-        language_storage::{ModuleId, TypeTag},
-    },
-    types::{
-        account_address::AccountAddress,
-        transaction::{EntryFunction, TransactionPayload},
-        LocalAccount,
-    },
+use aptos_types::{
+    account_address::AccountAddress,
+    transaction::{EntryFunction, TransactionPayload},
+};
+use move_core_types::{
+    identifier::Identifier,
+    language_storage::{ModuleId, TypeTag},
 };
 
-use crate::client::Client;
+use crate::{client::Client, types::LocalAccount};
 
 #[derive(Debug)]
 pub struct ModuleClient {
@@ -33,7 +30,7 @@ impl ModuleClient {
         function: &str,
         ty_args: Vec<TypeTag>,
         args: Vec<Vec<u8>>,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(self.address, Identifier::new(name).unwrap()),
             Identifier::new(function).unwrap(),

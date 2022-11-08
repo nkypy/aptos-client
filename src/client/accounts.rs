@@ -1,4 +1,4 @@
-use aptos_sdk::types::account_address::AccountAddress;
+use aptos_types::account_address::AccountAddress;
 use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::types::U64;
@@ -9,12 +9,23 @@ impl super::Client {
         &self,
         account_address: AccountAddress,
         _ledger_version: Option<U64>,
-    ) -> Result<Account, ureq::Error> {
-        Ok(self
-            .inner
-            .get(&format!("{}/accounts/{}", self.base_url, account_address))
-            .call()?
-            .into_json::<Account>()?)
+    ) -> Result<Account, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .get(&format!("{}/accounts/{}", self.base_url, account_address))
+                .call()?
+                .into_json::<Account>()?)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<Account>(
+                &format!("{}/accounts/{}", self.base_url, account_address),
+                "GET",
+                None,
+            )?)
+        }
     }
 
     /// GET /accounts/{address}/resource/{resource_type}
@@ -22,15 +33,29 @@ impl super::Client {
         &self,
         account_address: AccountAddress,
         resource_type: &str,
-    ) -> Result<AccountResource<T>, ureq::Error> {
-        Ok(self
-            .inner
-            .get(&format!(
-                "{}/accounts/{}/resource/{}",
-                self.base_url, account_address, resource_type
-            ))
-            .call()?
-            .into_json::<AccountResource<T>>()?)
+    ) -> Result<AccountResource<T>, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .get(&format!(
+                    "{}/accounts/{}/resource/{}",
+                    self.base_url, account_address, resource_type
+                ))
+                .call()?
+                .into_json::<AccountResource<T>>()?)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<AccountResource<T>>(
+                &format!(
+                    "{}/accounts/{}/resource/{}",
+                    self.base_url, account_address, resource_type
+                ),
+                "GET",
+                None,
+            )?)
+        }
     }
 }
 

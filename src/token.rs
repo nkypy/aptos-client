@@ -1,13 +1,12 @@
-use crate::{client::Client, types::U64};
-use aptos_sdk::{
-    bcs,
-    move_types::{identifier::Identifier, language_storage::ModuleId},
-    types::{
-        account_address::AccountAddress,
-        transaction::{EntryFunction, TransactionPayload},
-        LocalAccount,
-    },
+use crate::{
+    client::Client,
+    types::{LocalAccount, U64},
 };
+use aptos_types::{
+    account_address::AccountAddress,
+    transaction::{EntryFunction, TransactionPayload},
+};
+use move_core_types::{identifier::Identifier, language_storage::ModuleId};
 use serde::Deserialize;
 
 #[derive(Debug)]
@@ -29,7 +28,7 @@ impl TokenClient {
         name: &str,
         description: &str,
         uri: &str,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(
                 AccountAddress::from_hex_literal("0x3").unwrap(),
@@ -64,7 +63,7 @@ impl TokenClient {
         property_keys: Vec<&str>,
         property_values: Vec<&str>,
         property_types: Vec<&str>,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(
                 AccountAddress::from_hex_literal("0x3").unwrap(),
@@ -104,7 +103,7 @@ impl TokenClient {
         token_name: &str,
         property_version: u64,
         amount: u64,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(
                 AccountAddress::from_hex_literal("0x3").unwrap(),
@@ -136,7 +135,7 @@ impl TokenClient {
         collection_name: &str,
         token_name: &str,
         property_version: u64,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(
                 AccountAddress::from_hex_literal("0x3").unwrap(),
@@ -163,7 +162,7 @@ impl TokenClient {
         &self,
         account_address: AccountAddress,
         collection_name: &str,
-    ) -> Result<CollectionData, ureq::Error> {
+    ) -> Result<CollectionData, anyhow::Error> {
         Ok(self.client.table_item::<CollectionData>(
             &self.account_resource_collection_data_handle(account_address)?,
             "0x1::string::String",
@@ -180,7 +179,7 @@ impl TokenClient {
         collection_name: &str,
         token_name: &str,
         property_version: u64,
-    ) -> Result<Token, ureq::Error> {
+    ) -> Result<Token, anyhow::Error> {
         let token_id = serde_json::json!({
             "token_data_id": {
                 "creator": creater.to_hex_literal(),
@@ -204,7 +203,7 @@ impl TokenClient {
         collection_name: &str,
         token_name: &str,
         _property_version: u64,
-    ) -> Result<TokenData, ureq::Error> {
+    ) -> Result<TokenData, anyhow::Error> {
         let token_data_id = serde_json::json!({
             "creator": creator.to_hex_literal(),
             "collection": collection_name,
@@ -224,7 +223,7 @@ impl TokenClient {
         account_address: AccountAddress,
         _start: u64,
         _limit: u64,
-    ) -> Result<Vec<TokenData>, ureq::Error> {
+    ) -> Result<Vec<TokenData>, anyhow::Error> {
         let events = self.client.events_by_event_handle::<EventData>(
             account_address,
             "0x3::token::TokenStore",
@@ -254,7 +253,7 @@ impl TokenClient {
         collection_name: &str,
         token_name: &str,
         property_version: u64,
-    ) -> Result<u64, ureq::Error> {
+    ) -> Result<u64, anyhow::Error> {
         let resp = self.token(
             owner,
             creator,
@@ -269,7 +268,7 @@ impl TokenClient {
     fn account_resource_collection_data_handle(
         &self,
         account_address: AccountAddress,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         Ok(self
             .client
             .account_resource::<ResourceCollectionData>(account_address, "0x3::token::Collections")?
@@ -281,7 +280,7 @@ impl TokenClient {
     fn account_resource_token_data_handle(
         &self,
         account_address: AccountAddress,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         Ok(self
             .client
             .account_resource::<ResourceTokenData>(account_address, "0x3::token::Collections")?
@@ -293,7 +292,7 @@ impl TokenClient {
     fn account_resource_tokens_handle(
         &self,
         account_address: AccountAddress,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         Ok(self
             .client
             .account_resource::<ResourceTokens>(account_address, "0x3::token::TokenStore")?

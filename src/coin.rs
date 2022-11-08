@@ -1,4 +1,4 @@
-use aptos_sdk::types::account_address::AccountAddress;
+use aptos_types::account_address::AccountAddress;
 use serde::Deserialize;
 
 use crate::{client::Client, types::U64};
@@ -16,7 +16,7 @@ impl CoinClient {
     }
 
     // APT 余额
-    pub fn account_balance(&self, account_address: AccountAddress) -> Result<u64, ureq::Error> {
+    pub fn account_balance(&self, account_address: AccountAddress) -> Result<u64, anyhow::Error> {
         Ok(self
             .client
             .account_resource::<Balance>(

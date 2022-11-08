@@ -1,44 +1,66 @@
-use aptos_sdk::{
-    bcs,
-    types::{
-        transaction::{RawTransaction, SignedTransaction, TransactionPayload},
-        LocalAccount,
-    },
-};
+use aptos_types::transaction::{RawTransaction, SignedTransaction, TransactionPayload};
 use serde::Deserialize;
 use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
 
-use crate::types::U64;
+use crate::types::{LocalAccount, U64};
 
 impl super::Client {
     /// GET /transactions/by_hash/{txn_hash}
-    pub fn transaction_by_hash(&self, txn_hash: &str) -> Result<Transaction, ureq::Error> {
-        Ok(self
-            .inner
-            .get(&format!(
-                "{}/transactions/by_hash/{}",
-                self.base_url, txn_hash
-            ))
-            .call()?
-            .into_json::<Transaction>()?)
+    pub fn transaction_by_hash(&self, txn_hash: &str) -> Result<Transaction, anyhow::Error> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .get(&format!(
+                    "{}/transactions/by_hash/{}",
+                    self.base_url, txn_hash
+                ))
+                .call()?
+                .into_json::<Transaction>()?)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Ok(self.web_request::<Transaction>(
+                &format!("{}/transactions/by_hash/{}", self.base_url, txn_hash),
+                "GET",
+                None,
+            )?)
+        }
     }
 
     /// POST /transactions
     pub fn submit_bcs_transaction(
         &self,
         signed_transaction: SignedTransaction,
-    ) -> Result<String, ureq::Error> {
+    ) -> Result<String, anyhow::Error> {
         let data = bcs::to_bytes(&signed_transaction).unwrap();
-        Ok(self
-            .inner
-            .post(&format!("{}/transactions", self.base_url))
-            .set("Content-Type", "application/x.aptos.signed_transaction+bcs")
-            .send_bytes(&data)?
-            .into_json::<SubmitTransaction>()?
-            .hash)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Ok(self
+                .inner
+                .post(&format!("{}/transactions", self.base_url))
+                .set("Content-Type", "application/x.aptos.signed_transaction+bcs")
+                .send_bytes(&data)?
+                .into_json::<SubmitTransaction>()?
+                .hash)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let body_array: js_sys::Uint8Array = data.into();
+            let js_value: &JsValue = body_array.as_ref();
+            Ok(self
+                .web_request::<SubmitTransaction>(
+                    &format!("{}/transactions", self.base_url),
+                    "POST",
+                    Some(js_value),
+                )?
+                .hash)
+        }
     }
 
     // single signer sign transaction
@@ -80,23 +102,39 @@ impl super::Client {
         ()
     }
 
-    // 一下私有方法
+    // 以下私有方法
     fn transaction_pending(&self, txn_hash: &str) -> bool {
-        if let Ok(resp) = self
-            .inner
-            .get(&format!(
-                "{}/transactions/by_hash/{}",
-                self.base_url, txn_hash
-            ))
-            .call()
+        #[cfg(not(target_arch = "wasm32"))]
         {
-            if let Ok(txn) = resp.into_json::<Transaction>() {
+            if let Ok(resp) = self
+                .inner
+                .get(&format!(
+                    "{}/transactions/by_hash/{}",
+                    self.base_url, txn_hash
+                ))
+                .call()
+            {
+                if let Ok(txn) = resp.into_json::<Transaction>() {
+                    if txn.transaction_type != "pending_transaction".to_string() {
+                        return false;
+                    }
+                }
+            }
+            true
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Ok(txn) = self.web_request::<Transaction>(
+                &format!("{}/transactions/by_hash/{}", self.base_url, txn_hash),
+                "GET",
+                None,
+            ) {
                 if txn.transaction_type != "pending_transaction".to_string() {
                     return false;
                 }
             }
+            false
         }
-        true
     }
 }
 
