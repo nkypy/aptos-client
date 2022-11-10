@@ -17,7 +17,7 @@ impl super::Client {
 
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<LedgerInfo>(&self.base_url, "GET", None)?)
+            Ok(self.fetch::<LedgerInfo>(&self.base_url, "GET", None)?)
         }
     }
 }

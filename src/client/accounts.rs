@@ -20,7 +20,7 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<Account>(
+            Ok(self.fetch::<Account>(
                 &format!("{}/accounts/{}", self.base_url, account_address),
                 "GET",
                 None,
@@ -47,7 +47,7 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<AccountResource<T>>(
+            Ok(self.fetch::<AccountResource<T>>(
                 &format!(
                     "{}/accounts/{}/resource/{}",
                     self.base_url, account_address, resource_type

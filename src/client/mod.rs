@@ -41,7 +41,7 @@ impl Client {
         }
     }
     #[cfg(target_arch = "wasm32")]
-    async fn async_web_request<T: DeserializeOwned>(
+    async fn fetch_jsvalue<T: DeserializeOwned>(
         &self,
         url: &str,
         method: &str,
@@ -62,12 +62,14 @@ impl Client {
         Ok(val)
     }
     #[cfg(target_arch = "wasm32")]
-    fn web_request<T: DeserializeOwned>(
+    fn fetch<T: DeserializeOwned>(
         &self,
         url: &str,
         method: &str,
-        body: Option<JsValue>,
-    ) -> Result<T, JsValue> {
-        wasm_bindgen_futures::spawn_local(self.async_web_request(url, method, body))
+        body: Option<&JsValue>,
+    ) -> Result<T, anyhow::Error> {
+        wasm_bindgen_futures::spawn_local(async move {
+            self.fetch_jsvalue(url, method, body).await;
+        });
     }
 }

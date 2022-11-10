@@ -6,8 +6,8 @@ working in progress
 
 |        | sync | async |
 | ------ | ---- | ----- |
-| native | O    | X     |
-| wasm32 | O    | X     |
+| native | O    | ?     |
+| wasm32 | X    | ?     |
 
 ## Usage
 

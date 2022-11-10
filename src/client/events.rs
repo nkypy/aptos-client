@@ -29,7 +29,7 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<Vec<Event<T>>>(
+            Ok(self.fetch::<Vec<Event<T>>>(
                 &format!(
                     "{}/accounts/{}/events/{}/{}",
                     self.base_url,

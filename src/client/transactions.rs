@@ -25,7 +25,7 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<Transaction>(
+            Ok(self.fetch::<Transaction>(
                 &format!("{}/transactions/by_hash/{}", self.base_url, txn_hash),
                 "GET",
                 None,
@@ -38,7 +38,7 @@ impl super::Client {
         &self,
         signed_transaction: SignedTransaction,
     ) -> Result<String, anyhow::Error> {
-        let data = bcs::to_bytes(&signed_transaction).unwrap();
+        let data: &[u8] = bcs::to_bytes(&signed_transaction).unwrap().as_ref();
         #[cfg(not(target_arch = "wasm32"))]
         {
             Ok(self
@@ -54,7 +54,7 @@ impl super::Client {
             let body_array: js_sys::Uint8Array = data.into();
             let js_value: &JsValue = body_array.as_ref();
             Ok(self
-                .web_request::<SubmitTransaction>(
+                .fetch::<SubmitTransaction>(
                     &format!("{}/transactions", self.base_url),
                     "POST",
                     Some(js_value),
@@ -124,7 +124,7 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            if let Ok(txn) = self.web_request::<Transaction>(
+            if let Ok(txn) = self.fetch::<Transaction>(
                 &format!("{}/transactions/by_hash/{}", self.base_url, txn_hash),
                 "GET",
                 None,

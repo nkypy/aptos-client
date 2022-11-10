@@ -26,17 +26,17 @@ impl super::Client {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            Ok(self.web_request::<T>(
+            Ok(self.fetch::<T>(
                 &format!("{}/tables/{}/item", self.base_url, table_handle),
                 "POST",
-                Some(&serde_wasm_bindgen::to_value(
-                    serde_json::json!({
+                Some(
+                    &serde_wasm_bindgen::to_value(&serde_json::json!({
                         "key_type": key_type,
                         "value_type": value_type,
                         "key": key,
-                    })
+                    }))
                     .unwrap(),
-                )),
+                ),
             )?)
         }
     }
